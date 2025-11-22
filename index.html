@@ -1,1 +1,346 @@
 
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>授業内容表 自動作成サイト</title>
+<style>
+body{
+  background:#e8ecf2;
+  font-family:'MS UI Gothic','Meiryo UI',sans-serif;
+  margin:0;padding:0;
+  color:#111;
+}
+/* タイトルバー */
+header{
+  background:linear-gradient(to bottom,#2b4a7f,#1f3864);
+  color:white;padding:10px 20px;font-size:18px;
+  font-weight:bold;border-bottom:2px solid #10264c;
+  user-select:none;
+}
+/* メニューバー（Word XP風） */
+.menubar{
+  background:#f1f3f6;
+  border-bottom:1px solid #b5bcc8;
+  border-top:1px solid #ffffff;
+  padding:0 6px;
+  display:flex;gap:2px;
+  user-select:none;
+}
+.menu{
+  position:relative;
+  padding:4px 10px;
+  border:1px solid transparent;
+  border-radius:2px;
+  cursor:default;
+  font-size:13px;
+}
+.menu:hover{
+  background:#cfe1ff;
+  border-color:#7da2e0;
+}
+.menu .dropdown{
+  display:none;position:absolute;top:100%;left:0;min-width:160px;
+  background:#fff;border:1px solid #7a8aa6;box-shadow:2px 2px 6px rgba(0,0,0,.15);
+  z-index:50;
+}
+.menu.open .dropdown{display:block;}
+.dropdown button{
+  display:block;width:100%;text-align:left;padding:6px 10px;
+  background:#fff;border:0;border-bottom:1px solid #eef2f7;font-size:13px;
+}
+.dropdown button:hover{background:#edf5ff;}
+/* ウィンドウ本体 */
+main{max-width:1000px;margin:20px auto;padding:20px;background:#ffffff;
+  border:2px solid #d0d0d0;border-top-color:#ffffff;border-left-color:#ffffff;
+  box-shadow:inset 1px 1px 0 #f0f0f0,inset -1px -1px 0 #a0a0a0;}
+section{
+  background:#fefefe;margin-bottom:20px;padding:12px 16px;
+  border:1px solid #b8c0cc;border-top-color:#ffffff;border-left-color:#ffffff;
+}
+h2{font-size:15px;margin:0 0 8px 0;color:#284a7e;border-bottom:1px solid #a0b0d0;padding-bottom:2px;}
+label,select,input,textarea,button{font-family:'MS UI Gothic','Meiryo UI',sans-serif;font-size:14px;}
+select,input[type="text"],textarea{
+  border:1px solid #9fa9b9;background:#fff;
+}
+textarea{min-height:56px;resize:vertical}
+button{
+  background:#e2e6f0;border:1px solid #7a8aa6;
+  padding:4px 10px;margin:3px;border-radius:2px;
+  color:#000;cursor:pointer;
+}
+button:hover{background:#f0f4ff;}
+button:active{background:#d7dbee;transform:translateY(1px)}
+.debug{font-size:12px;background:#f8f8ff;border:1px solid #c0c0c0;padding:4px;margin-top:4px;}
+.grid{display:grid;grid-template-columns:80px 1fr 1fr 1.2fr;gap:6px;align-items:start}
+.grid .head{font-weight:bold;color:#284a7e}
+.subj-label{background:#f4f6fc;border:1px solid #c0c8d8;padding:4px;}
+.noteWrap{display:grid;grid-template-columns:120px 1fr;gap:6px;align-items:start}
+.noteWrap select{width:100%}
+.noteWrap textarea{width:100%}
+.hint{font-size:12px;color:#445;opacity:.8}
+</style>
+</head>
+<body>
+<header>📘 授業内容表 自動作成サイト</header>
+<div class="menubar" id="menubar">
+  <div class="menu">ファイル
+    <div class="dropdown">
+      <button id="menu-new">新規（入力をクリア）</button>
+      <button id="menu-export">Excel に出力</button>
+      <button id="menu-exit">閉じる</button>
+    </div>
+  </div>
+  <div class="menu">編集
+    <div class="dropdown">
+      <button id="menu-refill">教科を再自動入力</button>
+      <button id="menu-manual">教科の手動編集 ON/OFF</button>
+      <button id="menu-clear-notes">時限別連絡をクリア</button>
+    </div>
+  </div>
+  <div class="menu">表示
+    <div class="dropdown">
+      <button id="menu-preview">現在の反映科目を表示</button>
+    </div>
+  </div>
+  <div class="menu">ヘルプ
+    <div class="dropdown">
+      <button id="menu-about">このツールについて</button>
+    </div>
+  </div>
+</div>
+
+<main>
+<section>
+<h2>① 限数（6限・4限）</h2>
+<label><input type="radio" name="gensu" value="6" checked>6限</label>
+<label><input type="radio" name="gensu" value="4">4限</label>
+</section>
+
+<section>
+<h2>② 曜日・日付</h2>
+<select id="weekday">
+<option value="月">月曜日</option><option value="火">火曜日</option>
+<option value="水">水曜日</option><option value="木">木曜日</option>
+<option value="金">金曜日</option><option value="土">土曜日</option>
+</select>
+<input id="date" type="date">
+<label><input type="checkbox" id="manualEdit">教科を手動編集する</label>
+<button id="refill">教科を再自動入力</button>
+<div class="debug" id="debugPreview"></div>
+</section>
+
+<section>
+<h2>③ 授業内容・時限別連絡</h2>
+<div class="grid" id="periodGrid">
+  <div class="head">時限</div>
+  <div class="head">教科</div>
+  <div class="head">授業内容</div>
+  <div class="head">連絡（時限別）</div>
+</div>
+<div class="hint">※「連絡（時限別）」はプルダウンで「特になし」を選ぶか、自由入力欄に記入できます。</div>
+</section>
+
+<section>
+<h2>④ 全体【連絡事項】 & 出力</h2>
+<label><input type="checkbox" id="renrakuNone">全体連絡「特になし」にする（入力欄ロック）</label>
+<textarea id="renraku" placeholder="全体連絡（6限=B11／4限=B9 に出力）"></textarea>
+<div>
+  <button id="saveDownload">Excelに出力</button>
+</div>
+<div class="hint">ファイル名：授業内容 yyyy.mm.dd.xlsx</div>
+</section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx-populate/browser/xlsx-populate.min.js"></script>
+<script>
+const EMBED_B64 = "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";
+const timetable = {"月": ["物理", "英コミュⅡ", "数学B", "体育", "数学Ⅱ", "論表Ⅱ"], "火": ["数学Ⅱ", "情報Ⅰ", "化学", "数学B", "国語特講Ⅰ", "物理"], "水": ["数学Ⅱ", "数学Ⅱ", "論表Ⅱ", "数学B", "化学", "物理"], "木": ["数学Ⅱ", "物理", "体育", "保健体育", "探究", "LHR"], "金": ["国語特講Ⅰ", "論表Ⅱ", "家庭基礎", "家庭基礎", "英コミュⅡ", "化学"], "土": ["国語特講Ⅰ", "英コミュⅡ", "化学", "情報Ⅰ"]};
+
+function b64ToUint8Array(b64){
+  var bin = atob(b64), len = bin.length, bytes = new Uint8Array(len);
+  for (var i=0;i<len;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+
+function getGensu(){
+  return document.querySelector('input[name="gensu"]:checked').value === '6' ? 6 : 4;
+}
+function subjectsBase(day){ return timetable[day] || []; }
+function weekday(){ return document.getElementById('weekday').value; }
+
+function render(){
+  const g = getGensu(), w = weekday(), base = subjectsBase(w);
+  const manual = document.getElementById('manualEdit').checked;
+  const grid = document.getElementById('periodGrid');
+  grid.innerHTML = '<div class="head">時限</div><div class="head">教科</div><div class="head">授業内容</div><div class="head">連絡（時限別）</div>';
+  for (let i=0;i<g;i++){
+    const subj = base[i] || '';
+    const subjCell = manual
+      ? `<input type="text" class="subj" value="${subj.replace(/"/g,'&quot;')}" data-index="${i}">`
+      : `<div class="subj-label" data-index="${i}">${subj}</div>`;
+    const note = `<div class="noteWrap" data-index="${i}">
+        <select class="noteSel">
+          <option value=""></option>
+          <option value="特になし">特になし</option>
+        </select>
+        <textarea class="noteText" placeholder="自由入力（例：小テスト、宿題）"></textarea>
+      </div>`;
+    grid.insertAdjacentHTML(
+      'beforeend',
+      `<div>${i+1}限</div><div>${subjCell}</div><div><textarea class="content" placeholder="授業内容を入力"></textarea></div><div>${note}</div>`
+    );
+  }
+  document.getElementById('debugPreview').textContent = `${g}限 / ${w}：` + base.join(' / ');
+}
+
+function perNoteValue(rowIdx){
+  const wrap = document.querySelector('.noteWrap[data-index="'+rowIdx+'"]');
+  const sel = wrap.querySelector('.noteSel');
+  const ta  = wrap.querySelector('.noteText');
+  const sv = (sel.value||'').trim();
+  const tv = (ta.value||'').trim();
+  if (sv === '特になし') return '特になし';
+  if (tv === '特になし') return '特になし';
+  if (sv && tv) return sv + '／' + tv;
+  return sv || tv;
+}
+
+function readSubjects(){
+  const g = getGensu(), w = weekday(), base = subjectsBase(w);
+  const manual = document.getElementById('manualEdit').checked;
+  const arr = new Array(g);
+  if (manual){
+    const inputs = document.querySelectorAll('.subj');
+    for (let i=0;i<g;i++) arr[i] = inputs[i] ? inputs[i].value.trim() : (base[i] || '');
+  }else{
+    for (let i=0;i<g;i++) arr[i] = base[i] || '';
+  }
+  return arr;
+}
+function readContents(){
+  const g = getGensu(), arr = new Array(g);
+  const t = document.querySelectorAll('.content');
+  for (let i=0;i<g;i++) arr[i] = t[i] ? t[i].value.trim() : '';
+  return arr;
+}
+function readPerNotes(){
+  const g = getGensu(), arr = new Array(g);
+  for (let i=0;i<g;i++) arr[i] = perNoteValue(i);
+  return arr;
+}
+
+function saveExcel(){
+  const bytes = b64ToUint8Array(EMBED_B64);
+  XlsxPopulate.fromDataAsync(bytes).then(wb => {
+    const g = getGensu();
+    const ws = wb.sheet(g === 6 ? '6限' : '4限');
+    const start = 3;
+    const subjects = readSubjects();
+    const contents = readContents();
+    const notes = readPerNotes();
+
+    for (let i=0;i<g;i++){
+      ws.cell('C'+(start+i)).value(subjects[i]||'');
+      ws.cell('D'+(start+i)).value(contents[i]||'');
+      ws.cell('E'+(start+i)).value(notes[i]||'');
+    }
+
+    if (g === 6) ws.range('C3:E8').style({fontSize:14});
+    else ws.range('C3:E6').style({fontSize:14});
+
+    const overallNone  = document.getElementById('renrakuNone').checked;
+    const overallText  = document.getElementById('renraku').value || '';
+    const overallCell  = g === 6 ? 'B11' : 'B9';
+    ws.cell(overallCell).value(overallNone ? '特になし' : overallText)
+                        .style({fontFamily:'ＭＳ Ｐゴシック', fontSize:14});
+    ws.cell(overallCell).style({fontFamily:'MS PGothic', fontSize:14});
+
+    const dateInput = document.getElementById('date').value;
+    const d = dateInput ? new Date(dateInput) : new Date();
+    const fn = '授業内容 ' + (d.getFullYear() + '.'
+              + ('0'+(d.getMonth()+1)).slice(-2) + '.'
+              + ('0'+d.getDate()).slice(-2)) + '.xlsx';
+
+    wb.outputAsync().then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fn;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  });
+}
+
+/* メニュー挙動 */
+(function setupMenu(){
+  const bar = document.getElementById('menubar');
+  bar.addEventListener('click', e => {
+    const item = e.target.closest('.menu');
+    if (!item) return;
+    const opened = bar.querySelector('.menu.open');
+    if (opened && opened !== item) opened.classList.remove('open');
+    item.classList.toggle('open');
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.menubar .menu')){
+      const opened = document.querySelector('.menubar .menu.open');
+      if (opened) opened.classList.remove('open');
+    }
+  });
+
+  document.getElementById('menu-new').onclick = () => {
+    document.querySelectorAll('.content,.noteText').forEach(el => el.value = '');
+    document.querySelectorAll('.noteSel').forEach(el => el.value = '');
+    document.getElementById('renraku').value = '';
+    document.getElementById('renrakuNone').checked = false;
+  };
+  document.getElementById('menu-export').onclick = () => saveExcel();
+  document.getElementById('menu-exit').onclick   = () => alert('このウィンドウを閉じるか、ブラウザのタブを閉じてください。');
+  document.getElementById('menu-refill').onclick = () => render();
+  document.getElementById('menu-manual').onclick = () => {
+    const cb = document.getElementById('manualEdit');
+    cb.checked = !cb.checked;
+    render();
+  };
+  document.getElementById('menu-clear-notes').onclick = () => {
+    document.querySelectorAll('.noteText').forEach(n => n.value = '');
+    document.querySelectorAll('.noteSel').forEach(s => s.value = '');
+  };
+  document.getElementById('menu-preview').onclick = () => {
+    const g = getGensu(), w = weekday(), base = subjectsBase(w);
+    alert(g + '限 / ' + w + '：\n' + base.join(' / '));
+  };
+  document.getElementById('menu-about').onclick = () => alert('授業内容表 自動作成サイト - Word 2003 風 v19.7');
+})();
+
+/* 動線 */
+document.getElementById('weekday').addEventListener('change', render);
+document.querySelectorAll('input[name="gensu"]').forEach(r => r.addEventListener('change', render));
+document.getElementById('refill').addEventListener('click', render);
+document.getElementById('saveDownload').addEventListener('click', saveExcel);
+document.getElementById('manualEdit').addEventListener('change', render);
+document.getElementById('renrakuNone').addEventListener('change', function(){
+  const ta = document.getElementById('renraku');
+  if (this.checked){
+    ta.value = '特になし';
+    ta.disabled = true;
+  }else{
+    if (ta.value === '特になし') ta.value = '';
+    ta.disabled = false;
+  }
+});
+
+/* 初期化 */
+(function init(){
+  document.getElementById('date').valueAsDate = new Date();
+  render();
+})();
+</script>
+</body>
+</html>
+
